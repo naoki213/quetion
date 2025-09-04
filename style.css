@@ -8,8 +8,8 @@
   --bad: #ef4444;
   --neutral: #f59e0b;
 
-  --tab-h: 56px;
-  --bar-h: 64px;
+  --tab-h: 56px;   /* 物理タブ高さ */
+  --bar-h: 64px;   /* 下部操作バー */
 }
 
 /* Reset & base */
@@ -27,18 +27,20 @@ html, body {
 h2, h3 { margin: 0 0 12px; }
 p { margin: 0 0 8px; }
 
+/* ===== 上部固定タブ（ノッチ安全） ===== */
 .topbar {
   position: sticky;
   top: 0;
   z-index: 50;
-  height: var(--tab-h);
+  height: calc(var(--tab-h) + env(safe-area-inset-top, 0px));
+  padding-top: env(safe-area-inset-top, 0px);
   background: rgba(2,6,23,0.9);
-  backdrop-filter: blur(8px);
+  /* （iOSでのモーダル時フリーズ軽減のため、topbarの過度なblurは避ける） */
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
 .tabs {
-  height: 100%;
+  height: var(--tab-h);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
 }
@@ -95,6 +97,7 @@ p { margin: 0 0 8px; }
   padding: 10px 14px;
   border-radius: 12px;
   font-weight: 600;
+  cursor: pointer;
 }
 .btn.primary { background: var(--accent); color: #001015; border-color: transparent; }
 .btn.good { background: var(--good); color: #062012; }
@@ -126,43 +129,56 @@ p { margin: 0 0 8px; }
   color: var(--muted);
 }
 
-/* マスク表示 */
+/* ===== マスク（完全に隠す / 完全表示） =====
+   - iOS/Safari向けに -webkit-text-fill-color も併用
+   - 子孫要素にも強制適用してチラ見えを防止
+*/
 .mask {
   background: #d00;
-  color: transparent;
   border-radius: 4px;
   padding: 0 2px;
 }
+.mask,
+.mask * {
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+  text-shadow: none !important;
+}
 .mask.revealed {
-  color: inherit;
   background: #3a0d0d;
 }
+.mask.revealed,
+.mask.revealed * {
+  color: inherit !important;
+  -webkit-text-fill-color: inherit !important;
+}
 
-/* Aタブ 問題領域 */
+/* ===== A：問題表示（テキスト選択でのチラ見え防止） ===== */
 .question-container {
   min-height: 180px;
-  max-height: calc(100dvh - var(--tab-h) - var(--bar-h) - 80px);
+  max-height: calc(100dvh - var(--tab-h) - env(safe-area-inset-top, 0px) - var(--bar-h) - 80px);
   overflow: auto;
   padding: 8px;
   line-height: 1.8;
+  user-select: none;
+  -webkit-user-select: none;
 }
 .placeholder { color: var(--muted); }
 
-/* 下部固定バー（A） */
+/* ===== 下部固定バー（A） ===== */
 .bottombar {
   position: fixed;
   left: 0; right: 0; bottom: 0;
-  height: var(--bar-h);
+  height: calc(var(--bar-h) + env(safe-area-inset-bottom, 0px));
   padding: 8px 12px calc(8px + env(safe-area-inset-bottom, 0px)) 12px;
   display: flex; align-items: center; gap: 10px; justify-content: center;
   background: rgba(2,6,23,0.9);
   border-top: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(8px);
 }
 .judge.hidden { display: none; }
 .judge { display: flex; gap: 10px; }
 
-/* Cタブ 問題一覧 */
+/* ===== C：問題一覧 ===== */
 .problem-list { display: grid; gap: 10px; }
 .problem-item {
   background: #0a1022;
@@ -190,12 +206,15 @@ p { margin: 0 0 8px; }
 }
 .chip input { margin-right: 6px; }
 
-/* モーダル */
+/* ===== モーダル（フリーズ対策：blurを外す） ===== */
 .modal { position: fixed; inset: 0; display: none; }
 .modal.hidden { display: none; }
 .modal:not(.hidden) { display: block; }
 .modal-backdrop {
-  position: absolute; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(2px);
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,0.5);
+  /* iOSでのレンダリング負荷軽減のため blur 無効化 */
+  /* backdrop-filter: blur(2px); */
 }
 .modal-content {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
@@ -205,11 +224,12 @@ p { margin: 0 0 8px; }
   background: var(--card);
   border: 1px solid rgba(255,255,255,0.12);
   border-radius: 16px; padding: 16px;
+  will-change: transform;
 }
 .modal-content.large { width: min(920px, 96vw); }
 .modal-body { display: grid; gap: 8px; max-height: 60vh; overflow: auto; }
 
-/* Dタブ 日別リスト */
+/* ===== D：日別リスト ===== */
 .daily-list { display: grid; gap: 6px; }
 .daily-item {
   display: flex; justify-content: space-between; padding: 8px 10px;
