@@ -1,5 +1,5 @@
 /* =========================
-   消費税法 暗記アプリ（修正版）
+   消費税法 暗記アプリ（PWA要素なし版）
    - カテゴリ複数対応
    - 重み関数：シンプル方式のみ
    - A：解答確認トグル（再タップで隠す）、×は5問後再出題
@@ -106,7 +106,7 @@
   }
   function clamp(n, min, max){ return Math.min(max, Math.max(min, n)); }
 
-  // テキストの冒頭1文（句点 or 改行または先頭100文字）
+  // テキストの冒頭1文
   function firstSentenceFromHTML(html) {
     const div = document.createElement('div');
     div.innerHTML = html;
@@ -125,7 +125,6 @@
   }
 
   function extractAnswersFrom(el) {
-    // el: HTMLElement（editorなど）
     return Array.from(el.querySelectorAll('.mask'))
       .map(e => (e.textContent || '').trim())
       .filter(Boolean);
@@ -133,7 +132,6 @@
 
   function unmaskAllIn(el) {
     el.querySelectorAll('.mask').forEach(m => {
-      // span.mask をその中身のテキストノードに戻す
       const parent = m.parentNode;
       while (m.firstChild) parent.insertBefore(m.firstChild, m);
       parent.removeChild(m);
@@ -193,7 +191,7 @@
      B: 問題作成
      ====================== */
 
-  // ペースト検知 → 直前ペースト更新（繰り返し用）
+  // ペースト検知 → 直前ペースト更新
   editor.addEventListener('paste', () => {
     setTimeout(() => {
       appState.lastPastedHTML = editor.innerHTML;
@@ -243,7 +241,7 @@
   /* ======================
      C: 編集・確認
      ====================== */
-  let currentCatFilter = []; // 選択カテゴリ
+  let currentCatFilter = [];
 
   function renderC(){
     renderCategoryChips();
@@ -274,7 +272,7 @@
     });
   }
 
-  document.getElementById('clearCatFilterBtn').addEventListener('click', () => {
+  clearCatFilterBtn.addEventListener('click', () => {
     currentCatFilter = [];
     renderCategoryChips();
     renderProblemList();
@@ -379,7 +377,7 @@
     }
   });
 
-  // ====== C 詳細編集モーダル（安定化）
+  // ====== C 詳細編集モーダル
   let editingId = null;
 
   function openEditModal(id){
@@ -390,7 +388,6 @@
     editCatInput.value = (p.categories || []).join(', ');
     editMeta.textContent = `No.${problems.indexOf(p)+1} / 正答: ${p.correctCount} / 回答: ${p.answerCount} / スコア: ${p.score.toFixed(1)}`;
 
-    // モーダル表示
     editModal.classList.remove('hidden');
     editModal.setAttribute('aria-hidden', 'false');
   }
@@ -419,9 +416,9 @@
   /* ======================
      A: 出題・採点
      ====================== */
-  let currentPool = [];   // 出題対象のID配列
-  let currentId = null;   // 現在出題中のID
-  let isRevealed = false; // 解答表示状態
+  let currentPool = [];
+  let currentId = null;
+  let isRevealed = false;
 
   startAllBtn.addEventListener('click', () => {
     startSession(null);
@@ -431,7 +428,6 @@
     openCatModal();
   });
 
-  // カテゴリ選択モーダル（安定化）
   function openCatModal(){
     catModalBody.innerHTML = '';
     const allCats = new Set();
@@ -472,7 +468,6 @@
   });
 
   function startSession(categories /* null | string[] */){
-    // プール作成
     let ids = problems
       .filter(p => (categories ? (p.categories || []).some(c => categories.includes(c)) : true))
       .map(p => p.id);
@@ -481,9 +476,9 @@
 
     currentPool = ids;
     currentId = null;
-    appState.recentQueue = []; // 新規セッションで直近履歴リセット
+    appState.recentQueue = [];
 
-    setReveal(false); // 初期は隠す
+    setReveal(false);
     renderQuestion(nextQuestionId());
   }
 
@@ -500,7 +495,6 @@
     }
   }
 
-  // トグル化（再タップで隠す）
   revealBtn.addEventListener('click', () => setReveal(!isRevealed));
 
   judgeBtns.addEventListener('click', (e) => {
@@ -516,7 +510,7 @@
     currentId = id;
     questionContainer.innerHTML = p.html || '<div class="placeholder">本文なし</div>';
     questionContainer.scrollTop = 0;
-    setReveal(false); // 問題切替時は常に隠す
+    setReveal(false);
   }
 
   // シンプル重み： weight = 1 / (1 + max(0, score))
@@ -525,7 +519,7 @@
   }
 
   function nextQuestionId(){
-    // 強制再出題 delay 前進
+    // 強制再出題のdelay更新
     appState.forcedQueue.forEach(item => item.delay--);
     const readyIdx = appState.forcedQueue.findIndex(item => item.delay <= 0);
     if (readyIdx >= 0) {
@@ -584,7 +578,7 @@
     dailyStats[dkey].total += 1;
     if (mark === 'o') dailyStats[dkey].correct += 1;
 
-    // その日の到達数（スナップショット）
+    // その日の到達数スナップショット
     const ge3 = problems.filter(x => (x.score ?? 0) >= 3).length;
     const ge5 = problems.filter(x => (x.score ?? 0) >= 5).length;
     const ge10 = problems.filter(x => (x.score ?? 0) >= 10).length;
@@ -641,7 +635,6 @@
     const ge5Arr = labels.map(k => dailyThresholds[k]?.ge5 ?? 0);
     const ge10Arr = labels.map(k => dailyThresholds[k]?.ge10 ?? 0);
 
-    // 分解（負値が出ないようmaxで守る）
     const only10 = ge10Arr;
     const only5 = ge5Arr.map((v,i) => Math.max(0, v - ge10Arr[i]));
     const only3 = ge3Arr.map((v,i) => Math.max(0, v - ge5Arr[i]));
@@ -687,8 +680,8 @@
   /* ======================
      初期レンダリング
      ====================== */
-  renderC();            // C初期描画
-  setReveal(false);     // Aのボタン初期化
+  renderC();
+  setReveal(false);
 
   // 画面復帰時、Dタブを開いていたら再描画
   window.addEventListener('visibilitychange', () => {
