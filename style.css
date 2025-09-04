@@ -35,7 +35,6 @@ p { margin: 0 0 8px; }
   height: calc(var(--tab-h) + env(safe-area-inset-top, 0px));
   padding-top: env(safe-area-inset-top, 0px);
   background: rgba(2,6,23,0.9);
-  /* （iOSでのモーダル時フリーズ軽減のため、topbarの過度なblurは避ける） */
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 
@@ -51,6 +50,7 @@ p { margin: 0 0 8px; }
   border: none;
   font-weight: 600;
   letter-spacing: .02em;
+  cursor: pointer;
 }
 .tab-btn.active {
   color: #fff;
@@ -129,10 +129,7 @@ p { margin: 0 0 8px; }
   color: var(--muted);
 }
 
-/* ===== マスク（完全に隠す / 完全表示） =====
-   - iOS/Safari向けに -webkit-text-fill-color も併用
-   - 子孫要素にも強制適用してチラ見えを防止
-*/
+/* ===== マスク（完全に隠す / 完全表示） ===== */
 .mask {
   background: #d00;
   border-radius: 4px;
@@ -206,15 +203,13 @@ p { margin: 0 0 8px; }
 }
 .chip input { margin-right: 6px; }
 
-/* ===== モーダル（フリーズ対策：blurを外す） ===== */
+/* ===== モーダル（軽量化：blurなし） ===== */
 .modal { position: fixed; inset: 0; display: none; }
 .modal.hidden { display: none; }
 .modal:not(.hidden) { display: block; }
 .modal-backdrop {
   position: absolute; inset: 0;
   background: rgba(0,0,0,0.5);
-  /* iOSでのレンダリング負荷軽減のため blur 無効化 */
-  /* backdrop-filter: blur(2px); */
 }
 .modal-content {
   position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
