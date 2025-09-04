@@ -1,11 +1,11 @@
 /* =========================
-   消費税法 暗記アプリ（MVP）
+   消費税法 暗記アプリ（修正版）
    - カテゴリ複数対応
    - 重み関数：シンプル方式のみ
-   - B: 選択→マスク、繰り返し、保存
-   - C: 一覧（No+冒頭1文）/ 再マスク編集 / JSON入出力
-   - A: 重み付き出題、解答確認、〇/△/×、×は5問後再出題
-   - D: +3/+5/+10の到達数グラフ / 日別（正答/回答）
+   - A：解答確認トグル（再タップで隠す）、×は5問後再出題
+   - B：選択→マスク / 繰り返し / 保存
+   - C：一覧→編集（再マスク）、JSON入出力
+   - D：積み上げ棒グラフ（+3のみ/+5のみ/+10）
    ========================= */
 
 (() => {
@@ -41,7 +41,6 @@
   const questionContainer = document.getElementById('questionContainer');
   const revealBtn = document.getElementById('revealBtn');
   const judgeBtns = document.getElementById('judgeBtns');
-  const answerBar = document.getElementById('answerBar');
 
   // B
   const editor = document.getElementById('editor');
@@ -146,32 +145,28 @@
     if (!sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
     if (!rootEditable.contains(range.commonAncestorContainer)) return;
-
-    // 選択範囲が空でないこと
     if (range.collapsed) return;
 
-    // 既にmask内なら解除（closest）
-    let ancestorNode = range.commonAncestorContainer.nodeType === 1
+    // 既にmask内なら解除
+    let anc = range.commonAncestorContainer.nodeType === 1
       ? range.commonAncestorContainer
       : range.commonAncestorContainer.parentElement;
+    const inMask = anc && anc.closest('.mask');
 
-    if (ancestorNode && ancestorNode.closest('.mask')) {
-      const target = ancestorNode.closest('.mask');
-      // unwrap
+    if (inMask) {
+      const target = inMask;
       const parent = target.parentNode;
       while (target.firstChild) parent.insertBefore(target.firstChild, target);
       parent.removeChild(target);
       return;
     }
 
-    // 選択部分を span.mask で囲む
+    // span.mask で囲む（フォールバック付き）
     const span = document.createElement('span');
     span.className = 'mask';
     try {
       range.surroundContents(span);
     } catch {
-      // surroundContentsは部分的な要素選択で例外になりがち→
-      // Rangeをfragment化して挿入する方法にフォールバック
       const frag = range.extractContents();
       const wrap = document.createElement('span');
       wrap.className = 'mask';
@@ -189,7 +184,6 @@
       pages.forEach(p => p.classList.remove('show'));
       document.querySelector(target).classList.add('show');
 
-      // タブ別の描画
       if (target === '#tab-c') renderC();
       if (target === '#tab-d') renderD();
     });
@@ -200,8 +194,7 @@
      ====================== */
 
   // ペースト検知 → 直前ペースト更新（繰り返し用）
-  editor.addEventListener('paste', (e) => {
-    // 少し遅延して実際のDOM反映後に読む
+  editor.addEventListener('paste', () => {
     setTimeout(() => {
       appState.lastPastedHTML = editor.innerHTML;
       saveAll();
@@ -222,10 +215,8 @@
 
   saveProblemBtn.addEventListener('click', () => {
     const html = editor.innerHTML.trim();
-    if (!html) {
-      alert('長文を入力してください。');
-      return;
-    }
+    if (!html) { alert('長文を入力してください。'); return; }
+
     const answers = extractAnswersFrom(editor);
     if (answers.length === 0) {
       if (!confirm('マスクがありません。保存しますか？')) return;
@@ -244,8 +235,6 @@
       updatedAt: now
     });
     saveAll();
-    // 次の作成に備え、本文は残してもOKだが今回はクリア
-    // （繰り返しボタンで直前ペーストを呼び戻せます）
     editor.innerHTML = '';
     catInput.value = '';
     alert('保存しました。（Cタブに反映）');
@@ -254,7 +243,7 @@
   /* ======================
      C: 編集・確認
      ====================== */
-  let currentCatFilter = []; // 配列：選択カテゴリ
+  let currentCatFilter = []; // 選択カテゴリ
 
   function renderC(){
     renderCategoryChips();
@@ -275,11 +264,8 @@
       cb.value = cat;
       cb.checked = currentCatFilter.includes(cat);
       cb.addEventListener('change', () => {
-        if (cb.checked) {
-          currentCatFilter.push(cat);
-        } else {
-          currentCatFilter = currentCatFilter.filter(c => c !== cat);
-        }
+        if (cb.checked) currentCatFilter.push(cat);
+        else currentCatFilter = currentCatFilter.filter(c => c !== cat);
         renderProblemList();
       });
       label.appendChild(cb);
@@ -288,7 +274,7 @@
     });
   }
 
-  clearCatFilterBtn.addEventListener('click', () => {
+  document.getElementById('clearCatFilterBtn').addEventListener('click', () => {
     currentCatFilter = [];
     renderCategoryChips();
     renderProblemList();
@@ -297,7 +283,6 @@
   function problemMatchesFilter(p){
     if (currentCatFilter.length === 0) return true;
     if (!p.categories || p.categories.length === 0) return false;
-    // OR条件：いずれかのカテゴリが一致すれば表示
     return p.categories.some(c => currentCatFilter.includes(c));
   }
 
@@ -305,7 +290,7 @@
     problemList.innerHTML = '';
     const filtered = problems.filter(problemMatchesFilter);
 
-    filtered.forEach((p, idx) => {
+    filtered.forEach((p) => {
       const div = document.createElement('div');
       div.className = 'problem-item';
 
@@ -351,13 +336,9 @@
     }
   }
 
-  // JSON エクスポート
+  // JSON エクスポート/インポート
   exportJsonBtn.addEventListener('click', () => {
-    const payload = {
-      problems,
-      dailyStats,
-      dailyThresholds
-    };
+    const payload = { problems, dailyStats, dailyThresholds };
     const blob = new Blob([JSON.stringify(payload, null, 2)], {type: 'application/json'});
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -369,7 +350,6 @@
     URL.revokeObjectURL(url);
   });
 
-  // JSON インポート
   importJsonInput.addEventListener('change', async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -378,7 +358,6 @@
       const data = JSON.parse(text);
 
       if (Array.isArray(data.problems)) {
-        // id衝突を避けつつマージ（同IDは置換）
         const map = new Map(problems.map(p => [p.id, p]));
         data.problems.forEach(p => map.set(p.id, p));
         problems = Array.from(map.values());
@@ -400,7 +379,7 @@
     }
   });
 
-  // ====== C 詳細編集モーダル
+  // ====== C 詳細編集モーダル（安定化）
   let editingId = null;
 
   function openEditModal(id){
@@ -410,6 +389,8 @@
     editEditor.innerHTML = p.html;
     editCatInput.value = (p.categories || []).join(', ');
     editMeta.textContent = `No.${problems.indexOf(p)+1} / 正答: ${p.correctCount} / 回答: ${p.answerCount} / スコア: ${p.score.toFixed(1)}`;
+
+    // モーダル表示
     editModal.classList.remove('hidden');
     editModal.setAttribute('aria-hidden', 'false');
   }
@@ -440,16 +421,17 @@
      ====================== */
   let currentPool = [];   // 出題対象のID配列
   let currentId = null;   // 現在出題中のID
+  let isRevealed = false; // 解答表示状態
 
   startAllBtn.addEventListener('click', () => {
     startSession(null);
   });
 
   startByCatBtn.addEventListener('click', () => {
-    // モーダルを開いてカテゴリチェックボックス
     openCatModal();
   });
 
+  // カテゴリ選択モーダル（安定化）
   function openCatModal(){
     catModalBody.innerHTML = '';
     const allCats = new Set();
@@ -473,7 +455,6 @@
         catModalBody.appendChild(label);
       });
     }
-
     catModal.classList.remove('hidden');
     catModal.setAttribute('aria-hidden', 'false');
   }
@@ -486,10 +467,7 @@
     const checks = catModalBody.querySelectorAll('input[type=checkbox]:checked');
     const selected = Array.from(checks).map(c => c.value);
     closeCatModal();
-    if (selected.length === 0) {
-      alert('カテゴリを1つ以上選択してください。');
-      return;
-    }
+    if (selected.length === 0) { alert('カテゴリを1つ以上選択してください。'); return; }
     startSession(selected);
   });
 
@@ -499,34 +477,32 @@
       .filter(p => (categories ? (p.categories || []).some(c => categories.includes(c)) : true))
       .map(p => p.id);
 
-    if (ids.length === 0) {
-      alert('出題できる問題がありません。Bタブで作成してください。');
-      return;
-    }
+    if (ids.length === 0) { alert('出題できる問題がありません。Bタブで作成してください。'); return; }
 
     currentPool = ids;
     currentId = null;
     appState.recentQueue = []; // 新規セッションで直近履歴リセット
-    // reveal状態を初期化
-    setReveal(false);
+
+    setReveal(false); // 初期は隠す
     renderQuestion(nextQuestionId());
   }
 
   function setReveal(show){
+    isRevealed = show;
     if (show) {
-      revealBtn.classList.add('hidden');
+      revealBtn.textContent = '解答を隠す';
       judgeBtns.classList.remove('hidden');
-      // 表示中のマスクに .revealed を付与
       questionContainer.querySelectorAll('.mask').forEach(m => m.classList.add('revealed'));
     } else {
-      revealBtn.classList.remove('hidden');
+      revealBtn.textContent = '解答確認';
       judgeBtns.classList.add('hidden');
-      // 表示中のマスクから .revealed を外す
       questionContainer.querySelectorAll('.mask').forEach(m => m.classList.remove('revealed'));
     }
   }
 
-  revealBtn.addEventListener('click', () => setReveal(true));
+  // トグル化（再タップで隠す）
+  revealBtn.addEventListener('click', () => setReveal(!isRevealed));
+
   judgeBtns.addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-mark]');
     if (!btn) return;
@@ -538,12 +514,9 @@
     const p = problems.find(x => x.id === id);
     if (!p) return;
     currentId = id;
-    // revealリセット
-    setReveal(false);
-    // 本文描画
     questionContainer.innerHTML = p.html || '<div class="placeholder">本文なし</div>';
-    // スクロール先頭へ
     questionContainer.scrollTop = 0;
+    setReveal(false); // 問題切替時は常に隠す
   }
 
   // シンプル重み： weight = 1 / (1 + max(0, score))
@@ -552,12 +525,11 @@
   }
 
   function nextQuestionId(){
-    // 強制再出題キューのdelayを進め、delay==0のものがあれば優先して返す
+    // 強制再出題 delay 前進
     appState.forcedQueue.forEach(item => item.delay--);
     const readyIdx = appState.forcedQueue.findIndex(item => item.delay <= 0);
     if (readyIdx >= 0) {
       const ready = appState.forcedQueue.splice(readyIdx, 1)[0];
-      // もしプール外なら（カテゴリ絞り出題中で消えた等）スキップして再試行
       if (currentPool.includes(ready.id)) {
         appState.recentQueue.push(ready.id);
         appState.recentQueue = appState.recentQueue.slice(-5);
@@ -566,16 +538,11 @@
       }
     }
 
-    // プールから recentQueue（直近5問）を除外
     const recent = new Set(appState.recentQueue);
     const candidates = currentPool.filter(id => !recent.has(id));
-    if (candidates.length === 0) {
-      // すべて除外された場合は履歴を緩める
-      candidates.push(...currentPool);
-    }
+    const cand = candidates.length ? candidates : currentPool;
 
-    // 重み付きルーレット
-    const items = candidates.map(id => {
+    const items = cand.map(id => {
       const p = problems.find(x => x.id === id);
       return { id, w: weightOf(p) };
     });
@@ -589,7 +556,6 @@
         return it.id;
       }
     }
-    // フォールバック
     const fallback = items[0]?.id ?? currentPool[0];
     appState.recentQueue.push(fallback);
     appState.recentQueue = appState.recentQueue.slice(-5);
@@ -601,7 +567,6 @@
     const p = problems.find(x => x.id === currentId);
     if (!p) return;
 
-    // スコア変動
     let delta = 0;
     if (mark === 'o') delta = +1;
     else if (mark === 'd') delta = -0.5;
@@ -612,25 +577,20 @@
     if (mark === 'o') p.correctCount = (p.correctCount ?? 0) + 1;
     p.updatedAt = Date.now();
 
-    // ×は5問後に強制キューへ
-    if (mark === 'x') {
-      appState.forcedQueue.push({ id: p.id, delay: 5 });
-    }
+    if (mark === 'x') appState.forcedQueue.push({ id: p.id, delay: 5 });
 
-    // 日別記録：正答/回答を更新
     const dkey = todayKey();
     if (!dailyStats[dkey]) dailyStats[dkey] = { correct: 0, total: 0 };
     dailyStats[dkey].total += 1;
     if (mark === 'o') dailyStats[dkey].correct += 1;
 
-    // 日別しきい値到達数（全問題の現在スコアから集計して当日値として保存）
+    // その日の到達数（スナップショット）
     const ge3 = problems.filter(x => (x.score ?? 0) >= 3).length;
     const ge5 = problems.filter(x => (x.score ?? 0) >= 5).length;
     const ge10 = problems.filter(x => (x.score ?? 0) >= 10).length;
     dailyThresholds[dkey] = { ge3, ge5, ge10 };
 
     saveAll();
-    // 次問へ
     renderQuestion(nextQuestionId());
   }
 
@@ -645,7 +605,7 @@
   function renderDailyList(){
     dailyList.innerHTML = '';
     const entries = Object.entries(dailyStats)
-      .sort((a,b) => a[0].localeCompare(b[0], 'ja')); // 日付順
+      .sort((a,b) => a[0].localeCompare(b[0], 'ja'));
 
     if (entries.length === 0) {
       const div = document.createElement('div');
@@ -668,6 +628,7 @@
     }
   }
 
+  // 積み上げ棒グラフ： ge10 / (ge5-ge10) / (ge3-ge5)
   function renderProgressChart(){
     const labels = Array.from(
       new Set([
@@ -676,60 +637,60 @@
       ])
     ).sort((a,b)=>a.localeCompare(b,'ja'));
 
-    const ge3 = labels.map(k => dailyThresholds[k]?.ge3 ?? 0);
-    const ge5 = labels.map(k => dailyThresholds[k]?.ge5 ?? 0);
-    const ge10 = labels.map(k => dailyThresholds[k]?.ge10 ?? 0);
+    const ge3Arr = labels.map(k => dailyThresholds[k]?.ge3 ?? 0);
+    const ge5Arr = labels.map(k => dailyThresholds[k]?.ge5 ?? 0);
+    const ge10Arr = labels.map(k => dailyThresholds[k]?.ge10 ?? 0);
+
+    // 分解（負値が出ないようmaxで守る）
+    const only10 = ge10Arr;
+    const only5 = ge5Arr.map((v,i) => Math.max(0, v - ge10Arr[i]));
+    const only3 = ge3Arr.map((v,i) => Math.max(0, v - ge5Arr[i]));
 
     const data = {
       labels,
       datasets: [
-        { label: 'スコア +3 以上', data: ge3 },
-        { label: 'スコア +5 以上', data: ge5 },
-        { label: 'スコア +10 以上', data: ge10 },
+        { label: 'スコア +3 以上（3〜4）', data: only3 },
+        { label: 'スコア +5 以上（5〜9）', data: only5 },
+        { label: 'スコア +10', data: only10 },
       ]
     };
 
-    if (progressChart) {
-      progressChart.data = data;
-      progressChart.update();
-      return;
-    }
-
-    progressChart = new Chart(progressCanvas, {
-      type: 'line',
-      data,
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-          legend: { labels: { color: '#e5e7eb' } }
+    const options = {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: '#e5e7eb' } }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          ticks: { color: '#e5e7eb' },
+          grid: { color: 'rgba(255,255,255,0.08)' }
         },
-        scales: {
-          x: {
-            ticks: { color: '#e5e7eb' },
-            grid: { color: 'rgba(255,255,255,0.08)' }
-          },
-          y: {
-            ticks: { color: '#e5e7eb' },
-            grid: { color: 'rgba(255,255,255,0.08)' },
-            beginAtZero: true
-          }
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: { color: '#e5e7eb' },
+          grid: { color: 'rgba(255,255,255,0.08)' }
         }
       }
-    });
+    };
+
+    if (progressChart) {
+      progressChart.destroy();
+      progressChart = null;
+    }
+    progressChart = new Chart(progressCanvas, { type: 'bar', data, options });
   }
 
   /* ======================
      初期レンダリング
      ====================== */
-  // C/Dの初期反映（タブ遷移時にも再描画）
-  renderC();
+  renderC();            // C初期描画
+  setReveal(false);     // Aのボタン初期化
 
-  // Aタブ：最初は回答ボタン群を非表示に
-  setReveal(false);
-
-  // 画面復帰時、グラフを再描画（サイズリセット対策）
+  // 画面復帰時、Dタブを開いていたら再描画
   window.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       if (document.querySelector('#tab-d').classList.contains('show')) {
