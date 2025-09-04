@@ -8,14 +8,7 @@
   />
   <title>消費税法 暗記アプリ</title>
 
-  <!-- PWA: manifest & theme color -->
-  <link rel="manifest" href="manifest.json" />
-  <meta name="theme-color" content="#0f172a" />
-
-  <!-- iOS (PWA fullscreen) -->
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <!-- ※PWA関連は削除済み -->
 
   <link rel="stylesheet" href="style.css" />
 
@@ -114,7 +107,7 @@
     <section id="tab-d" class="page">
       <div class="card">
         <h2>進捗グラフ（スコア到達数）</h2>
-        <canvas id="progressChart" height="200"></canvas>
+        <div style="height:220px"><canvas id="progressChart"></canvas></div>
       </div>
 
       <div class="card">
@@ -162,14 +155,5 @@
   </div>
 
   <script src="app.js"></script>
-
-  <!-- PWA: Service Worker 登録 -->
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js').catch(console.error);
-      });
-    }
-  </script>
 </body>
 </html>
