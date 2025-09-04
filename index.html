@@ -7,8 +7,15 @@
     content="width=device-width, initial-scale=1, viewport-fit=cover"
   />
   <title>消費税法 暗記アプリ</title>
+
+  <!-- PWA: manifest & theme color -->
+  <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#0f172a" />
-  <!-- （PWAは後日 manifest.json / sw.js を追加可能） -->
+
+  <!-- iOS (PWA fullscreen) -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
 
   <link rel="stylesheet" href="style.css" />
 
@@ -155,5 +162,14 @@
   </div>
 
   <script src="app.js"></script>
+
+  <!-- PWA: Service Worker 登録 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(console.error);
+      });
+    }
+  </script>
 </body>
 </html>
